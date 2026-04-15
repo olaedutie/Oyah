@@ -1,0 +1,115 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and wallet information",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "referral_code": { "type": "string" },
+        "referred_by": { "type": "string" },
+        "wallet_balance": { "type": "number" },
+        "total_earnings": { "type": "number" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "role": { "type": "string", "enum": ["user", "admin"] }
+      },
+      "required": ["name", "email", "referral_code", "wallet_balance", "total_earnings", "created_at", "role"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "Available micro-tasks for users to earn money",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "reward_amount": { "type": "number" },
+        "task_type": { "type": "string" },
+        "task_link": { "type": "string" },
+        "max_users": { "type": "number" },
+        "completed_count": { "type": "number" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "reward_amount", "task_type", "max_users", "completed_count", "created_at"]
+    },
+    "CompletedTask": {
+      "title": "CompletedTask",
+      "description": "Record of a user completing a task",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "task_id": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "reward_paid": { "type": "boolean" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "task_id", "status", "reward_paid", "created_at"]
+    },
+    "Referral": {
+      "title": "Referral",
+      "description": "Record of a referral relationship",
+      "type": "object",
+      "properties": {
+        "referrer_id": { "type": "string" },
+        "referred_user_id": { "type": "string" },
+        "bonus_paid": { "type": "boolean" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["referrer_id", "referred_user_id", "bonus_paid", "created_at"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Wallet transaction history",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "type": { "type": "string", "enum": ["task", "referral", "withdrawal"] },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "completed", "failed"] },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "type", "amount", "status", "created_at"]
+    },
+    "Gig": {
+      "title": "Gig",
+      "description": "Service marketplace listing",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "rating": { "type": "number" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "title", "description", "price", "created_at"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile and wallet"
+    },
+    "/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Available tasks"
+    },
+    "/completed_tasks/{id}": {
+      "schema": "CompletedTask",
+      "description": "Task completion records"
+    },
+    "/referrals/{id}": {
+      "schema": "Referral",
+      "description": "Referral tracking"
+    },
+    "/transactions/{id}": {
+      "schema": "Transaction",
+      "description": "Wallet transactions"
+    },
+    "/gigs/{id}": {
+      "schema": "Gig",
+      "description": "Marketplace services"
+    }
+  }
+}

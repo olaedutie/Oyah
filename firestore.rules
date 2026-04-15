@@ -1,0 +1,130 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields: name, email, phone, referral_code, referred_by, wallet_balance, total_earnings, created_at, role
+    //
+    // Collection: tasks
+    // Fields: title, description, reward_amount, task_type, task_link, max_users, completed_count, created_at
+    //
+    // Collection: completed_tasks
+    // Fields: user_id, task_id, status, reward_paid, created_at
+    //
+    // Collection: referrals
+    // Fields: referrer_id, referred_user_id, bonus_paid, created_at
+    //
+    // Collection: transactions
+    // Fields: user_id, type, amount, status, created_at
+    //
+    // Collection: gigs
+    // Fields: user_id, title, description, price, rating, created_at
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "olaedutie@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['name', 'email', 'referral_code', 'wallet_balance', 'total_earnings', 'created_at', 'role']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             data.wallet_balance is number && data.wallet_balance >= 0 &&
+             data.total_earnings is number && data.total_earnings >= 0 &&
+             data.role in ['user', 'admin'];
+    }
+
+    function isValidTask(data) {
+      return data.keys().hasAll(['title', 'description', 'reward_amount', 'task_type', 'max_users', 'completed_count', 'created_at']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.reward_amount is number && data.reward_amount >= 0;
+    }
+
+    function isValidCompletedTask(data) {
+      return data.keys().hasAll(['user_id', 'task_id', 'status', 'reward_paid', 'created_at']) &&
+             data.user_id == request.auth.uid &&
+             data.status in ['pending', 'approved', 'rejected'];
+    }
+
+    function isValidTransaction(data) {
+      return data.keys().hasAll(['user_id', 'type', 'amount', 'status', 'created_at']) &&
+             data.type in ['task', 'referral', 'withdrawal'] &&
+             data.amount is number &&
+             data.status in ['pending', 'completed', 'failed'];
+    }
+
+    function isValidGig(data) {
+      return data.keys().hasAll(['user_id', 'title', 'description', 'price', 'created_at']) &&
+             data.user_id == request.auth.uid &&
+             data.price is number && data.price >= 0;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && 
+                    (isOwner(userId) && request.resource.data.role == 'user' && request.resource.data.wallet_balance == 0) || isAdmin();
+      allow update: if isAuthenticated() && 
+                    ((isOwner(userId) && 
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'phone', 'referred_by']) &&
+                      request.resource.data.role == resource.data.role &&
+                      request.resource.data.wallet_balance == resource.data.wallet_balance) || 
+                     isAdmin());
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /completed_tasks/{id} {
+      allow read: if isAuthenticated() && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidCompletedTask(request.resource.data);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /referrals/{id} {
+      allow read: if isAuthenticated() && (resource.data.referrer_id == request.auth.uid || resource.data.referred_user_id == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+
+    match /transactions/{id} {
+      allow read: if isAuthenticated() && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && (
+        (request.resource.data.type == 'withdrawal' && request.resource.data.user_id == request.auth.uid) || 
+        isAdmin()
+      );
+      allow update, delete: if isAdmin();
+    }
+
+    match /gigs/{id} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidGig(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.user_id == request.auth.uid && isValidGig(request.resource.data);
+      allow delete: if isAuthenticated() && resource.data.user_id == request.auth.uid;
+    }
+  }
+}
